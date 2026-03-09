@@ -1,4 +1,3 @@
-//loqmanas dev
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -8,5 +7,7 @@ export const config = {
   clientId: process.env.CLIENT_ID,
   guildId: process.env.GUILD_ID,
   mtaApiUrl: process.env.MTA_API_URL,
+  mtaUser: process.env.MTA_USER,
+  mtaPass: process.env.MTA_PASS,
   verifyCodeTTL: Number(process.env.VERIFY_CODE_TTL) || 300
 };
