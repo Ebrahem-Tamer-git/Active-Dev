@@ -73,6 +73,10 @@ app.get('/api/sector/:discordId', (req, res) => {
         res.json({ success: false, message: "مش مرتبط أو مش أونلاين" });
     }
 });
+app.get('/api/pending-codes', (req, res) => {
+    res.json(codesStore);
+    codesStore = {}; // امسح بعد ما MTA ياخدهم
+});
 
 // bind
 app.post('/api/bind', (req, res) => {
