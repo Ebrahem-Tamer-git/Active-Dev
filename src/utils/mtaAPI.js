@@ -2,19 +2,16 @@
 import fetch from 'node-fetch';
 import { config } from '../config.js';
 
-// Authorization header مشترك
 function getHeaders(extra = {}) {
-  const credentials = Buffer.from(`${config.mtaUser}:${config.mtaPass}`).toString('base64');
   return {
     'Content-Type': 'application/json',
-    'Authorization': `Basic ${credentials}`,
     ...extra
   };
 }
 
 export async function bindMtaAccount(mtaUsername, discordId) {
   try {
-    const res = await fetch(`${config.mtaApiUrl}/bind`, {
+    const res = await fetch(`${config.mtaApiUrl}/api/bind`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ mtaUsername, discordId })
@@ -28,7 +25,7 @@ export async function bindMtaAccount(mtaUsername, discordId) {
 
 export async function unbindMtaAccount(discordId) {
   try {
-    const res = await fetch(`${config.mtaApiUrl}/unbind`, {
+    const res = await fetch(`${config.mtaApiUrl}/api/unbind`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ discordId })
@@ -42,22 +39,23 @@ export async function unbindMtaAccount(discordId) {
 
 export async function sendVerificationCodeToMta(mtaUsername, code) {
   try {
-    const res = await fetch(`${config.mtaApiUrl}/verify`, {
+    const res = await fetch(`${config.mtaApiUrl}/api/verify`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ mtaUsername, code })
     });
     const data = await res.json();
+    console.log(`[mtaAPI] /api/verify response:`, data);
     return data.success;
   } catch (e) {
-    console.error(e);
+    console.error('[mtaAPI] Error:', e.message);
     return false;
   }
 }
 
 export async function getMtaSector(discordId) {
   try {
-    const res = await fetch(`${config.mtaApiUrl}/sector/${discordId}`, {
+    const res = await fetch(`${config.mtaApiUrl}/api/sector/${discordId}`, {
       headers: getHeaders()
     });
     return await res.json();
@@ -69,7 +67,7 @@ export async function getMtaSector(discordId) {
 
 export async function getAllLinkedPlayers() {
   try {
-    const res = await fetch(`${config.mtaApiUrl}/linked`, {
+    const res = await fetch(`${config.mtaApiUrl}/api/linked`, {
       headers: getHeaders()
     });
     return await res.json();
