@@ -12,14 +12,22 @@ export default {
   async execute(interaction) {
     const username = interaction.options.getString('username');
     const { code, expiresAt } = generateVerifyCode(interaction.user.id, username);
-    // إرسال الرمز إلى اللعبة عبر API (تحتاج إلى تنفيذ جانب اللعبة)
+    
+    console.log(`[Verify] محاولة إرسال كود للاعب ${username}: ${code}`);
+    
     const sent = await sendVerificationCodeToMta(username, code);
+    
+    console.log(`[Verify] نتيجة الإرسال: ${sent}`);
+    
     if (!sent) {
-      return interaction.reply({ content: '❌ فشل إرسال الرمز إلى اللعبة. تأكد من تشغيل خادم MTA API.', ephemeral: true });
+      return interaction.reply({ 
+        content: '❌ فشل إرسال الرمز إلى اللعبة. تأكد من تشغيل خادم MTA API.', 
+        flags: 64
+      });
     }
     await interaction.reply({
       content: `✅ تم إنشاء رمز verification. استخدم الرمز **${code}** داخل اللعبة خلال ${Math.floor((expiresAt - Date.now()) / 1000)} ثانية.`,
-      ephemeral: true
+      flags: 64
     });
   }
 };
