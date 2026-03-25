@@ -1,6 +1,8 @@
 // © 2026 Ebrahem
 import express from 'express';
 import bodyParser from 'body-parser';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { sectorsCache } from '../utils/autoSync.js';
 import { saveLink, deleteLink, getAllLinks } from '../utils/database.js';
 import { config } from '../config.js';
@@ -8,6 +10,9 @@ import { config } from '../config.js';
 const { json } = bodyParser;
 const app = express();
 app.use(json());
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // كاش الأكواد المؤقتة: mtaUsername => code
 export const codesStore = {};
@@ -70,8 +75,6 @@ app.get('/', (req, res) => {
       --panel-border: rgba(110, 194, 255, 0.28);
       --text: #eaf6ff;
       --muted: #92b7d6;
-      --accent: #3db9ff;
-      --accent-2: #0077ff;
       --success: #5af0c2;
       --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
     }
@@ -107,19 +110,23 @@ app.get('/', (req, res) => {
       backdrop-filter: blur(16px);
     }
 
-    .logo {
+    .logo-box {
       width: 120px;
       height: 120px;
       border-radius: 28px;
       display: grid;
       place-items: center;
-      font-size: 68px;
-      font-weight: 900;
-      color: white;
-      background:
-        radial-gradient(circle at 30% 30%, rgba(135, 225, 255, 0.95), rgba(61, 185, 255, 0.4) 34%, transparent 35%),
-        linear-gradient(145deg, #4bd7ff, #0077ff 58%, #01398f);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 18px 30px rgba(0, 87, 196, 0.35);
+      background: rgba(8, 24, 41, 0.9);
+      border: 1px solid rgba(110, 194, 255, 0.18);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+
+    .logo-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
     }
 
     .hero h1 {
@@ -233,7 +240,7 @@ app.get('/', (req, res) => {
         text-align: center;
       }
 
-      .logo {
+      .logo-box {
         margin: 0 auto;
       }
 
@@ -246,7 +253,9 @@ app.get('/', (req, res) => {
 <body>
   <main class="shell">
     <section class="hero">
-      <div class="logo">F</div>
+      <div class="logo-box">
+        <img src="/logo.png" alt="Falcons RP Logo" class="logo-image" />
+      </div>
       <div>
         <h1>Falcons RP</h1>
         <p>Discord and MTA control panel for linked accounts, faction sync tracking, and server-side bridge monitoring.</p>
