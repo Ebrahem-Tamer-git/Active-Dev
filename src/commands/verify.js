@@ -1,6 +1,7 @@
 // © 2026 Ebrahem
 import { SlashCommandBuilder } from 'discord.js';
 import { generateVerifyCode } from '../utils/verification.js';
+import { codesStore } from '../web/server.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -15,9 +16,12 @@ export default {
   async execute(interaction) {
     const username = interaction.options.getString('username');
     const { code, expiresAt } = generateVerifyCode(interaction.user.id, username);
+
+    codesStore[username] = code;
+
     const seconds = Math.floor((expiresAt - Date.now()) / 1000);
 
-    console.log(`[Verify] 🔑 كود للاعب ${username}: ${code}`);
+    console.log(`[Verify] Code for ${username}: ${code}`);
 
     await interaction.reply({
       content: [
