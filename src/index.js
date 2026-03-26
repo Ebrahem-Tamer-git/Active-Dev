@@ -9,13 +9,10 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export let botClient = null;
-
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
-botClient = client;
 client.commands = new Collection();
 
 // تحميل الأوامر
@@ -62,3 +59,4 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login(config.token);
+
