@@ -14,12 +14,14 @@ export const sectorRoleMap = {
     member: '1479113920697335941',
     leader: null,
   }
-}
-    // مدنيين (بدون فاكشن)
-  'Government of Los Santos': {
+
+    'Government of Los Santos': {
     member: '1479113920718442555',
     leader: '1479113920718442556',
   }
+  
+}
+
   ;
 
 // جيب الرول المناسب بناءً على القطاع والرتبة
