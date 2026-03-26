@@ -7,6 +7,12 @@ const SYNC_INTERVAL_MS = 10_000;
 // discordId => { sector, isLeader }
 export const sectorsCache = new Map();
 
+function getAllFactionRoleIds() {
+  return Object.values(sectorRoleMap)
+    .flatMap((roles) => [roles.member, roles.leader])
+    .filter(Boolean);
+}
+
 export async function syncMemberRoles(guild, discordId) {
   const cached = sectorsCache.get(discordId);
   if (!cached) {
@@ -18,20 +24,36 @@ export async function syncMemberRoles(guild, discordId) {
     return { ok: false, reason: 'member_not_found' };
   }
 
-  const roleId = getRoleId(cached.sector, cached.isLeader);
-  if (!roleId) {
-    return { ok: false, reason: 'missing_role_mapping', sector: cached.sector };
+  const allRoleIds = getAllFactionRoleIds();
+
+  // Remove old faction roles first, always.
+  if (allRoleIds.length > 0) {
+    await member.roles.remove(allRoleIds).catch(() => null);
   }
 
-  const allRoleIds = Object.values(sectorRoleMap)
-    .flatMap(r => [r.member, r.leader])
-    .filter(Boolean);
-
-  await member.roles.remove(allRoleIds).catch(() => null);
-  await member.roles.add(roleId);
+  const roleId = getRoleId(cached.sector, cached.isLeader);
 
   updateSector(discordId, cached.sector, cached.isLeader);
-  return { ok: true, sector: cached.sector, isLeader: cached.isLeader };
+
+  // If no role is mapped for this sector (like Civilians), that's still a successful sync:
+  // old faction roles were removed and there is no new role to add.
+  if (!roleId) {
+    return {
+      ok: true,
+      removedOnly: true,
+      sector: cached.sector,
+      isLeader: cached.isLeader,
+    };
+  }
+
+  await member.roles.add(roleId);
+
+  return {
+    ok: true,
+    removedOnly: false,
+    sector: cached.sector,
+    isLeader: cached.isLeader,
+  };
 }
 
 export function startAutoSync(client) {
