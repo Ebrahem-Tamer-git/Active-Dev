@@ -10,33 +10,30 @@ export const sectorsCache = new Map();
 function getAllFactionRoleIds() {
   return Object.values(sectorRoleMap)
     .flatMap((roles) => [roles.member, roles.leader])
-    .filter(Boolean);
+    .filter(Boolean)
+    .map(String);
 }
 
 export async function syncMemberRoles(guild, discordId) {
-  const cached = sectorsCache.get(discordId);
+  const cached = sectorsCache.get(String(discordId));
   if (!cached) {
     return { ok: false, reason: 'missing_sector' };
   }
 
-  const member = await guild.members.fetch(discordId).catch(() => null);
+  const member = await guild.members.fetch(String(discordId)).catch(() => null);
   if (!member) {
     return { ok: false, reason: 'member_not_found' };
   }
 
   const allRoleIds = getAllFactionRoleIds();
 
-  // Remove old faction roles first, always.
   if (allRoleIds.length > 0) {
     await member.roles.remove(allRoleIds).catch(() => null);
   }
 
   const roleId = getRoleId(cached.sector, cached.isLeader);
+  updateSector(String(discordId), cached.sector, cached.isLeader);
 
-  updateSector(discordId, cached.sector, cached.isLeader);
-
-  // If no role is mapped for this sector (like Civilians), that's still a successful sync:
-  // old faction roles were removed and there is no new role to add.
   if (!roleId) {
     return {
       ok: true,
@@ -46,7 +43,7 @@ export async function syncMemberRoles(guild, discordId) {
     };
   }
 
-  await member.roles.add(roleId);
+  await member.roles.add(String(roleId));
 
   return {
     ok: true,
@@ -57,34 +54,48 @@ export async function syncMemberRoles(guild, discordId) {
 }
 
 export function startAutoSync(client) {
-  console.log('Auto-sync started (every 10s)');
+  console.log(`Auto-sync started (every ${SYNC_INTERVAL_MS / 1000}s)`);
 
   setInterval(async () => {
-    const guild = client.guilds.cache.first();
-    if (!guild) return;
-
-    const players = getAllLinks();
-    if (players.length === 0) return;
-
-    let success = 0;
-    let failed = 0;
-
-    for (const { discord_id } of players) {
-      try {
-        const result = await syncMemberRoles(guild, discord_id);
-        if (result.ok) {
-          success++;
-        } else {
-          failed++;
-        }
-      } catch (e) {
-        console.error(`[AutoSync] Error with ${discord_id}:`, e.message);
-        failed++;
+    try {
+      const guild = client.guilds.cache.get(client.guilds.cache.first()?.id) || client.guilds.cache.first();
+      if (!guild) {
+        console.log('[AutoSync] skipped: guild not found');
+        return;
       }
-    }
 
-    if (success > 0 || failed > 0) {
-      console.log(`[AutoSync] success: ${success} | failed: ${failed}`);
+      const players = getAllLinks();
+      if (players.length === 0) {
+        return;
+      }
+
+      let success = 0;
+      let failed = 0;
+
+      for (const { discord_id, mta_username } of players) {
+        try {
+          const result = await syncMemberRoles(guild, discord_id);
+
+          if (result.ok) {
+            success++;
+            console.log(
+              `[AutoSync] synced ${mta_username} -> ${result.sector} (${result.removedOnly ? 'removed old roles only' : 'role updated'})`
+            );
+          } else {
+            failed++;
+            console.log(`[AutoSync] skipped ${mta_username}: ${result.reason}`);
+          }
+        } catch (error) {
+          failed++;
+          console.error(`[AutoSync] error with ${mta_username} (${discord_id}):`, error.message);
+        }
+      }
+
+      if (success > 0 || failed > 0) {
+        console.log(`[AutoSync] success: ${success} | failed: ${failed}`);
+      }
+    } catch (error) {
+      console.error('[AutoSync] fatal loop error:', error.message);
     }
   }, SYNC_INTERVAL_MS);
 }
