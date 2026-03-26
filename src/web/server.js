@@ -4,7 +4,7 @@ import bodyParser from 'body-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { sectorsCache } from '../utils/autoSync.js';
-import { saveLink, deleteLink, getAllLinks } from '../utils/database.js';
+import { saveLink, deleteLink, getAllLinks, getLinkByUsername } from '../utils/database.js';
 import { config } from '../config.js';
 
 const app = express();
@@ -18,7 +18,6 @@ export const codesStore = {};
 
 function normalizePayload(body) {
   let payload = body;
-
   if (!payload) return {};
 
   if (typeof payload === 'string') {
@@ -29,14 +28,8 @@ function normalizePayload(body) {
     }
   }
 
-  if (Array.isArray(payload)) {
-    if (payload.length === 1 && typeof payload[0] === 'object' && payload[0] !== null) {
-      payload = payload[0];
-    }
-  }
-
-  if (payload && typeof payload === 'object' && Array.isArray(payload[0]) && payload[0][1]) {
-    payload = payload[0][1];
+  if (Array.isArray(payload) && payload.length > 0) {
+    payload = payload[0];
   }
 
   return payload && typeof payload === 'object' ? payload : {};
@@ -80,11 +73,7 @@ app.get('/', (req, res) => {
           <td>${new Date(player.linkedAt).toLocaleString('en-US')}</td>
         </tr>
       `).join('')
-    : `
-        <tr>
-          <td colspan="5" class="empty">No linked accounts yet.</td>
-        </tr>
-      `;
+    : `<tr><td colspan="5" class="empty">No linked accounts yet.</td></tr>`;
 
   res.type('html').send(`<!DOCTYPE html>
 <html lang="en">
@@ -198,42 +187,25 @@ app.get('/', (req, res) => {
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
-    tr:hover td { background: rgba(61, 185, 255, 0.04); }
     .empty { text-align: center; color: var(--muted); padding: 24px 12px; }
   </style>
 </head>
 <body>
   <main class="shell">
     <section class="hero">
-      <div class="logo-box">
-        <img src="/logo.png" alt="Falcons RP Logo" class="logo-image" />
-      </div>
+      <div class="logo-box"><img src="/logo.png" alt="Falcons RP Logo" class="logo-image" /></div>
       <div>
         <h1>Falcons RP</h1>
         <p>Discord and MTA control panel for linked accounts, faction sync tracking, and server-side bridge monitoring.</p>
       </div>
     </section>
-
     <section class="stats">
-      <article class="card">
-        <span>Linked Accounts</span>
-        <strong>${totalLinked}</strong>
-      </article>
-      <article class="card">
-        <span>Sector Synced</span>
-        <strong>${activeSectorSync}</strong>
-      </article>
-      <article class="card">
-        <span>Leaders</span>
-        <strong>${leaders}</strong>
-      </article>
+      <article class="card"><span>Linked Accounts</span><strong>${totalLinked}</strong></article>
+      <article class="card"><span>Sector Synced</span><strong>${activeSectorSync}</strong></article>
+      <article class="card"><span>Leaders</span><strong>${leaders}</strong></article>
     </section>
-
     <section class="table-wrap">
-      <div class="table-head">
-        <h2>Linked Players</h2>
-        <div class="badge">Bridge Online</div>
-      </div>
+      <div class="table-head"><h2>Linked Players</h2><div class="badge">Bridge Online</div></div>
       <table>
         <thead>
           <tr>
@@ -254,12 +226,16 @@ app.get('/', (req, res) => {
 
 app.post('/mta/sector', (req, res) => {
   const payload = normalizePayload(req.body);
-  console.log('[mta/sector] raw body:', req.body);
   console.log('[mta/sector] parsed payload:', payload);
 
-  const discordId = payload.discordId;
-  const sector = payload.sector;
-  const isLeader = payload.isLeader;
+  let { discordId, mtaUsername, sector, isLeader } = payload;
+
+  if (!discordId && mtaUsername) {
+    const link = getLinkByUsername(String(mtaUsername));
+    if (link) {
+      discordId = link.discord_id;
+    }
+  }
 
   if (!discordId || !sector) {
     return res.status(400).json({ success: false });
@@ -274,13 +250,8 @@ app.post('/mta/sector', (req, res) => {
 });
 
 app.post('/mta/verified', (req, res) => {
-  const payload = normalizePayload(req.body);
-  const { mtaUsername, code } = payload;
-
-  if (!mtaUsername || !code) {
-    return res.status(400).json({ success: false });
-  }
-
+  const { mtaUsername, code } = normalizePayload(req.body);
+  if (!mtaUsername || !code) return res.status(400).json({ success: false });
   codesStore[mtaUsername] = code;
   return res.json({ success: true });
 });
@@ -290,55 +261,34 @@ app.get('/api/get-code/:username', (req, res) => {
   return code ? res.json({ success: true, code }) : res.json({ success: false });
 });
 
-app.get('/api/pending-codes', (req, res) => {
-  return res.json({ ...codesStore });
-});
+app.get('/api/pending-codes', (req, res) => res.json({ ...codesStore }));
 
 app.post('/api/verify', (req, res) => {
-  const payload = normalizePayload(req.body);
-  const { mtaUsername, code } = payload;
-
-  if (!mtaUsername || !code) {
-    return res.status(400).json({ success: false });
-  }
-
+  const { mtaUsername, code } = normalizePayload(req.body);
+  if (!mtaUsername || !code) return res.status(400).json({ success: false });
   codesStore[mtaUsername] = code;
   return res.json({ success: true });
 });
 
 app.post('/api/bind', (req, res) => {
-  const payload = normalizePayload(req.body);
-  const { mtaUsername, discordId } = payload;
-
-  if (mtaUsername && discordId) {
-    saveLink(discordId, mtaUsername);
-  }
-
+  const { mtaUsername, discordId } = normalizePayload(req.body);
+  if (mtaUsername && discordId) saveLink(discordId, mtaUsername);
   return res.json({ success: true });
 });
 
 app.post('/api/unbind', (req, res) => {
-  const payload = normalizePayload(req.body);
-  const { discordId } = payload;
-
-  if (discordId) {
-    deleteLink(discordId);
-  }
-
+  const { discordId } = normalizePayload(req.body);
+  if (discordId) deleteLink(discordId);
   return res.json({ success: true });
 });
 
 app.get('/api/sector/:discordId', (req, res) => {
   const cached = sectorsCache.get(req.params.discordId);
-  if (cached) {
-    return res.json({ success: true, sector: cached.sector, isLeader: cached.isLeader });
-  }
+  if (cached) return res.json({ success: true, sector: cached.sector, isLeader: cached.isLeader });
   return res.json({ success: false, message: 'مش أونلاين أو مش مرتبط' });
 });
 
-app.get('/api/linked', (req, res) => {
-  return res.json(getLinkedPlayersView());
-});
+app.get('/api/linked', (req, res) => res.json(getLinkedPlayersView()));
 
 const PORT = config.port;
 app.listen(PORT, '0.0.0.0', () => {
