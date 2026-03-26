@@ -12,7 +12,7 @@ export const sectorRoleMap = {
   // مدنيين (بدون فاكشن)
   'Civilians': {
     member: 1479113920697335941,
-    leader: 1479113920697335941,
+    leader: null,
   }
 };
 
