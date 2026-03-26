@@ -31,38 +31,68 @@ export async function syncMemberRoles(guild, discordId) {
     return { ok: false, reason: 'member_not_found' };
   }
 
-  const existingRoleIds = getExistingFactionRoleIds(guild);
+  const targetRoleId = getRoleId(cached.sector, cached.isLeader);
+  const factionRoleIds = getExistingFactionRoleIds(guild);
+  const memberFactionRoles = factionRoleIds.filter((roleId) => member.roles.cache.has(roleId));
+  const hasTargetRole = targetRoleId ? member.roles.cache.has(String(targetRoleId)) : false;
 
-  if (existingRoleIds.length > 0) {
-    await member.roles.remove(existingRoleIds).catch(() => null);
-  }
-
-  const roleId = getRoleId(cached.sector, cached.isLeader);
   updateSector(String(discordId), cached.sector, cached.isLeader);
 
-  if (!roleId) {
+  // No role mapped for this faction: remove old faction roles only if any exist.
+  if (!targetRoleId) {
+    if (memberFactionRoles.length > 0) {
+      await member.roles.remove(memberFactionRoles).catch(() => null);
+      return {
+        ok: true,
+        removedOnly: true,
+        changed: true,
+        sector: cached.sector,
+        isLeader: cached.isLeader,
+      };
+    }
+
     return {
       ok: true,
       removedOnly: true,
+      changed: false,
       sector: cached.sector,
       isLeader: cached.isLeader,
     };
   }
 
-  if (!guild.roles.cache.has(String(roleId))) {
+  if (!guild.roles.cache.has(String(targetRoleId))) {
     return {
       ok: false,
-      reason: `unknown_role:${roleId}`,
+      reason: `unknown_role:${targetRoleId}`,
       sector: cached.sector,
-      guildId: guild.id,
     };
   }
 
-  await member.roles.add(String(roleId));
+  const rolesToRemove = memberFactionRoles.filter((roleId) => roleId !== String(targetRoleId));
+
+  // If the member already has only the correct role, don't touch anything.
+  if (rolesToRemove.length === 0 && hasTargetRole) {
+    return {
+      ok: true,
+      removedOnly: false,
+      changed: false,
+      sector: cached.sector,
+      isLeader: cached.isLeader,
+    };
+  }
+
+  if (rolesToRemove.length > 0) {
+    await member.roles.remove(rolesToRemove).catch(() => null);
+  }
+
+  if (!hasTargetRole) {
+    await member.roles.add(String(targetRoleId));
+  }
 
   return {
     ok: true,
     removedOnly: false,
+    changed: true,
     sector: cached.sector,
     isLeader: cached.isLeader,
   };
@@ -86,6 +116,7 @@ export function startAutoSync(client) {
 
       let success = 0;
       let failed = 0;
+      let changed = 0;
 
       for (const { discord_id, mta_username } of players) {
         try {
@@ -93,9 +124,12 @@ export function startAutoSync(client) {
 
           if (result.ok) {
             success++;
-            console.log(
-              `[AutoSync] synced ${mta_username} -> ${result.sector} (${result.removedOnly ? 'removed old roles only' : 'role updated'})`
-            );
+            if (result.changed) {
+              changed++;
+              console.log(
+                `[AutoSync] updated ${mta_username} -> ${result.sector} (${result.removedOnly ? 'removed old roles only' : 'role synced'})`
+              );
+            }
           } else {
             failed++;
             console.log(`[AutoSync] skipped ${mta_username}: ${result.reason}`);
@@ -106,8 +140,8 @@ export function startAutoSync(client) {
         }
       }
 
-      if (success > 0 || failed > 0) {
-        console.log(`[AutoSync] success: ${success} | failed: ${failed}`);
+      if (changed > 0 || failed > 0) {
+        console.log(`[AutoSync] success: ${success} | changed: ${changed} | failed: ${failed}`);
       }
     } catch (error) {
       console.error('[AutoSync] fatal loop error:', error.message);
