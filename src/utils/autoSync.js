@@ -4,11 +4,38 @@ import { getRoleId, sectorRoleMap } from './sectorRoles.js';
 
 const SYNC_INTERVAL_MS = 10_000;
 
-// sectorsCache: بيتملى من MTA عن طريق /mta/sector
-export const sectorsCache = new Map(); // discordId => { sector, isLeader }
+// discordId => { sector, isLeader }
+export const sectorsCache = new Map();
+
+export async function syncMemberRoles(guild, discordId) {
+  const cached = sectorsCache.get(discordId);
+  if (!cached) {
+    return { ok: false, reason: 'missing_sector' };
+  }
+
+  const member = await guild.members.fetch(discordId).catch(() => null);
+  if (!member) {
+    return { ok: false, reason: 'member_not_found' };
+  }
+
+  const roleId = getRoleId(cached.sector, cached.isLeader);
+  if (!roleId) {
+    return { ok: false, reason: 'missing_role_mapping', sector: cached.sector };
+  }
+
+  const allRoleIds = Object.values(sectorRoleMap)
+    .flatMap(r => [r.member, r.leader])
+    .filter(Boolean);
+
+  await member.roles.remove(allRoleIds).catch(() => null);
+  await member.roles.add(roleId);
+
+  updateSector(discordId, cached.sector, cached.isLeader);
+  return { ok: true, sector: cached.sector, isLeader: cached.isLeader };
+}
 
 export function startAutoSync(client) {
-  console.log('🔄 Auto-sync started (every 10s)');
+  console.log('Auto-sync started (every 10s)');
 
   setInterval(async () => {
     const guild = client.guilds.cache.first();
@@ -17,37 +44,25 @@ export function startAutoSync(client) {
     const players = getAllLinks();
     if (players.length === 0) return;
 
-    let success = 0, failed = 0;
+    let success = 0;
+    let failed = 0;
 
     for (const { discord_id } of players) {
       try {
-        const cached = sectorsCache.get(discord_id);
-        if (!cached) { failed++; continue; }
-
-        const member = await guild.members.fetch(discord_id).catch(() => null);
-        if (!member) { failed++; continue; }
-
-        const roleId = getRoleId(cached.sector, cached.isLeader);
-        if (!roleId) { failed++; continue; }
-
-        // إزالة كل رولات القطاعات القديمة
-        const allRoleIds = Object.values(sectorRoleMap)
-          .flatMap(r => [r.member, r.leader])
-          .filter(Boolean);
-        await member.roles.remove(allRoleIds).catch(() => null);
-
-        // إضافة الرول الجديد
-        await member.roles.add(roleId);
-        updateSector(discord_id, cached.sector, cached.isLeader);
-        success++;
+        const result = await syncMemberRoles(guild, discord_id);
+        if (result.ok) {
+          success++;
+        } else {
+          failed++;
+        }
       } catch (e) {
-        console.error(`[AutoSync] خطأ مع ${discord_id}:`, e.message);
+        console.error(`[AutoSync] Error with ${discord_id}:`, e.message);
         failed++;
       }
     }
 
     if (success > 0 || failed > 0) {
-      console.log(`[AutoSync] ✅ نجح: ${success} | ❌ فشل: ${failed}`);
+      console.log(`[AutoSync] success: ${success} | failed: ${failed}`);
     }
   }, SYNC_INTERVAL_MS);
 }
