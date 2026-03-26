@@ -9,7 +9,13 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+export let botClient = null;
+
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
+});
+
+botClient = client;
 client.commands = new Collection();
 
 // تحميل الأوامر
@@ -38,8 +44,10 @@ client.once('clientReady', () => {
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
+
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
+
   try {
     await command.execute(interaction);
   } catch (error) {
