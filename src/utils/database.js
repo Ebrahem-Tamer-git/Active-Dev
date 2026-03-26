@@ -9,7 +9,7 @@ const db = new Database(path.join(__dirname, '../../data/players.db'));
 db.exec(`
   CREATE TABLE IF NOT EXISTS linked_players (
     discord_id   TEXT PRIMARY KEY,
-    mta_username TEXT NOT NULL,
+    mta_username TEXT NOT NULL UNIQUE,
     sector       TEXT DEFAULT NULL,
     is_leader    INTEGER DEFAULT 0,
     linked_at    INTEGER NOT NULL
@@ -20,8 +20,8 @@ export function saveLink(discordId, mtaUsername) {
   db.prepare(`
     INSERT INTO linked_players (discord_id, mta_username, linked_at)
     VALUES (?, ?, ?)
-    ON CONFLICT(discord_id) DO UPDATE SET mta_username = ?, linked_at = ?
-  `).run(discordId, mtaUsername, Date.now(), mtaUsername, Date.now());
+    ON CONFLICT(discord_id) DO UPDATE SET mta_username = excluded.mta_username, linked_at = excluded.linked_at
+  `).run(discordId, mtaUsername, Date.now());
 }
 
 export function deleteLink(discordId) {
