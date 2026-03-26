@@ -31,13 +31,7 @@ export default {
           success++;
         } else {
           failed++;
-          if (result.reason === 'missing_sector') {
-            failReasons.push(`• ${mta_username}: لا توجد بيانات قطاع بعد.`);
-          } else if (result.reason === 'member_not_found') {
-            failReasons.push(`• ${mta_username}: العضو غير موجود داخل السيرفر.`);
-          } else {
-            failReasons.push(`• ${mta_username}: فشل غير معروف.`);
-          }
+          failReasons.push(`• ${mta_username}: ${result.reason}`);
         }
       } catch (error) {
         failed++;
