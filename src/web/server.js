@@ -3,10 +3,9 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { sectorsCache, syncMemberRoles } from '../utils/autoSync.js';
+import { sectorsCache } from '../utils/autoSync.js';
 import { saveLink, deleteLink, getAllLinks, getLinkByUsername } from '../utils/database.js';
 import { config } from '../config.js';
-import { botClient } from '../index.js';
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -56,22 +55,6 @@ function getLinkedPlayersView() {
       linkedAt: player.linked_at,
     };
   });
-}
-
-async function tryImmediateSync(discordId) {
-  try {
-    if (!botClient?.isReady()) return;
-
-    const guild = botClient.guilds.cache.get(config.guildId) || botClient.guilds.cache.first();
-    if (!guild) return;
-
-    const result = await syncMemberRoles(guild, String(discordId));
-    if (result?.ok) {
-      console.log(`[ImmediateSync] success for ${discordId} (${result.sector})`);
-    }
-  } catch (error) {
-    console.error(`[ImmediateSync] failed for ${discordId}:`, error.message);
-  }
 }
 
 app.get('/', (req, res) => {
@@ -241,7 +224,7 @@ app.get('/', (req, res) => {
 </html>`);
 });
 
-app.post('/mta/sector', async (req, res) => {
+app.post('/mta/sector', (req, res) => {
   const payload = normalizePayload(req.body);
 
   let { discordId, mtaUsername, sector, isLeader } = payload;
@@ -262,7 +245,6 @@ app.post('/mta/sector', async (req, res) => {
     isLeader: !!isLeader,
   });
 
-  await tryImmediateSync(String(discordId));
   return res.json({ success: true });
 });
 
