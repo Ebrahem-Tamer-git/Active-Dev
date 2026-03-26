@@ -7,11 +7,16 @@ const SYNC_INTERVAL_MS = 10_000;
 // discordId => { sector, isLeader }
 export const sectorsCache = new Map();
 
-function getAllFactionRoleIds() {
+function getConfiguredFactionRoleIds() {
   return Object.values(sectorRoleMap)
     .flatMap((roles) => [roles.member, roles.leader])
     .filter(Boolean)
     .map(String);
+}
+
+function getExistingFactionRoleIds(guild) {
+  const configured = getConfiguredFactionRoleIds();
+  return configured.filter((roleId) => guild.roles.cache.has(roleId));
 }
 
 export async function syncMemberRoles(guild, discordId) {
@@ -25,10 +30,10 @@ export async function syncMemberRoles(guild, discordId) {
     return { ok: false, reason: 'member_not_found' };
   }
 
-  const allRoleIds = getAllFactionRoleIds();
+  const existingRoleIds = getExistingFactionRoleIds(guild);
 
-  if (allRoleIds.length > 0) {
-    await member.roles.remove(allRoleIds).catch(() => null);
+  if (existingRoleIds.length > 0) {
+    await member.roles.remove(existingRoleIds).catch(() => null);
   }
 
   const roleId = getRoleId(cached.sector, cached.isLeader);
@@ -40,6 +45,14 @@ export async function syncMemberRoles(guild, discordId) {
       removedOnly: true,
       sector: cached.sector,
       isLeader: cached.isLeader,
+    };
+  }
+
+  if (!guild.roles.cache.has(String(roleId))) {
+    return {
+      ok: false,
+      reason: `unknown_role:${roleId}`,
+      sector: cached.sector,
     };
   }
 
@@ -58,7 +71,7 @@ export function startAutoSync(client) {
 
   setInterval(async () => {
     try {
-      const guild = client.guilds.cache.get(client.guilds.cache.first()?.id) || client.guilds.cache.first();
+      const guild = client.guilds.cache.first();
       if (!guild) {
         console.log('[AutoSync] skipped: guild not found');
         return;
