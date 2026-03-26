@@ -1,7 +1,7 @@
 // © 2026 Ebrahem
 import { SlashCommandBuilder } from 'discord.js';
 import { getPendingVerification, deletePendingVerification } from '../utils/verification.js';
-import { saveLink } from '../utils/database.js';
+import { saveLink, getLink, getLinkByUsername } from '../utils/database.js';
 import { codesStore } from '../web/server.js';
 import { syncMemberRoles, sectorsCache } from '../utils/autoSync.js';
 
@@ -19,6 +19,22 @@ export default {
     if (!pending) {
       return interaction.reply({
         content: '❌ مفيش طلب تحقق. اكتب `/verify` الأول.',
+        flags: 64
+      });
+    }
+
+    const existingOwnLink = getLink(interaction.user.id);
+    if (existingOwnLink && existingOwnLink.mta_username !== pending.mtaUsername) {
+      return interaction.reply({
+        content: `❌ حسابك مربوط بالفعل على **${existingOwnLink.mta_username}**. استخدم \`/unlink\` أولاً.`,
+        flags: 64
+      });
+    }
+
+    const usernameLink = getLinkByUsername(pending.mtaUsername);
+    if (usernameLink && usernameLink.discord_id !== interaction.user.id) {
+      return interaction.reply({
+        content: '❌ حساب الـ MTA ده مربوط بالفعل بحساب ديسكورد آخر.',
         flags: 64
       });
     }
@@ -46,9 +62,7 @@ export default {
     });
 
     const guild = interaction.guild;
-    if (!guild) {
-      return;
-    }
+    if (!guild) return;
 
     let syncResult = null;
 
