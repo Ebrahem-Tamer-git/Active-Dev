@@ -10,20 +10,36 @@ import { config } from '../config.js';
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-app.use(bodyParser.json());
-app.use(bodyParser.text({ type: '*/*' }));
+app.use(bodyParser.json({ limit: '1mb' }));
+app.use(bodyParser.text({ type: '*/*', limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 export const codesStore = {};
 
-function parsePayload(body) {
-  if (!body) return {};
-  if (typeof body === 'object') return body;
-  try {
-    return JSON.parse(body);
-  } catch {
-    return {};
+function normalizePayload(body) {
+  let payload = body;
+
+  if (!payload) return {};
+
+  if (typeof payload === 'string') {
+    try {
+      payload = JSON.parse(payload);
+    } catch {
+      return {};
+    }
   }
+
+  if (Array.isArray(payload)) {
+    if (payload.length === 1 && typeof payload[0] === 'object' && payload[0] !== null) {
+      payload = payload[0];
+    }
+  }
+
+  if (payload && typeof payload === 'object' && Array.isArray(payload[0]) && payload[0][1]) {
+    payload = payload[0][1];
+  }
+
+  return payload && typeof payload === 'object' ? payload : {};
 }
 
 function escapeHtml(value) {
@@ -70,7 +86,7 @@ app.get('/', (req, res) => {
         </tr>
       `;
 
-  const html = `<!DOCTYPE html>
+  res.type('html').send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -87,9 +103,7 @@ app.get('/', (req, res) => {
       --success: #5af0c2;
       --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
     }
-
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
       min-height: 100vh;
@@ -100,12 +114,7 @@ app.get('/', (req, res) => {
         radial-gradient(circle at top right, rgba(0, 119, 255, 0.25), transparent 24%),
         linear-gradient(135deg, var(--bg-1), var(--bg-2));
     }
-
-    .shell {
-      width: min(1180px, calc(100% - 32px));
-      margin: 32px auto;
-    }
-
+    .shell { width: min(1180px, calc(100% - 32px)); margin: 32px auto; }
     .hero {
       display: grid;
       grid-template-columns: 120px 1fr;
@@ -116,9 +125,7 @@ app.get('/', (req, res) => {
       border-radius: 28px;
       background: linear-gradient(160deg, rgba(8, 31, 57, 0.95), rgba(5, 19, 37, 0.92));
       box-shadow: var(--shadow);
-      backdrop-filter: blur(16px);
     }
-
     .logo-box {
       width: 120px;
       height: 120px;
@@ -129,33 +136,15 @@ app.get('/', (req, res) => {
       border: 1px solid rgba(110, 194, 255, 0.18);
       overflow: hidden;
     }
-
-    .logo-image {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: block;
-    }
-
-    .hero h1 {
-      margin: 0 0 8px;
-      font-size: clamp(30px, 4vw, 52px);
-    }
-
-    .hero p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 16px;
-      line-height: 1.7;
-    }
-
+    .logo-image { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .hero h1 { margin: 0 0 8px; font-size: clamp(30px, 4vw, 52px); }
+    .hero p { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.7; }
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 16px;
       margin-top: 20px;
     }
-
     .card {
       padding: 20px;
       border-radius: 22px;
@@ -163,7 +152,6 @@ app.get('/', (req, res) => {
       background: var(--panel);
       box-shadow: var(--shadow);
     }
-
     .card span {
       display: block;
       color: var(--muted);
@@ -171,14 +159,7 @@ app.get('/', (req, res) => {
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
-
-    .card strong {
-      display: block;
-      margin-top: 12px;
-      font-size: 38px;
-      line-height: 1;
-    }
-
+    .card strong { display: block; margin-top: 12px; font-size: 38px; line-height: 1; }
     .table-wrap {
       margin-top: 20px;
       padding: 20px;
@@ -188,7 +169,6 @@ app.get('/', (req, res) => {
       box-shadow: var(--shadow);
       overflow: hidden;
     }
-
     .table-head {
       display: flex;
       justify-content: space-between;
@@ -196,12 +176,7 @@ app.get('/', (req, res) => {
       gap: 12px;
       margin-bottom: 16px;
     }
-
-    .table-head h2 {
-      margin: 0;
-      font-size: 22px;
-    }
-
+    .table-head h2 { margin: 0; font-size: 22px; }
     .badge {
       padding: 8px 12px;
       border-radius: 999px;
@@ -210,50 +185,21 @@ app.get('/', (req, res) => {
       border: 1px solid rgba(90, 240, 194, 0.22);
       font-size: 13px;
     }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
+    table { width: 100%; border-collapse: collapse; }
     th, td {
       text-align: left;
       padding: 14px 12px;
       border-bottom: 1px solid rgba(146, 183, 214, 0.14);
       font-size: 14px;
     }
-
     th {
       color: #bfe0ff;
       font-size: 12px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
-
-    tr:hover td {
-      background: rgba(61, 185, 255, 0.04);
-    }
-
-    .empty {
-      text-align: center;
-      color: var(--muted);
-      padding: 24px 12px;
-    }
-
-    @media (max-width: 700px) {
-      .hero {
-        grid-template-columns: 1fr;
-        text-align: center;
-      }
-
-      .logo-box {
-        margin: 0 auto;
-      }
-
-      .table-wrap {
-        overflow-x: auto;
-      }
-    }
+    tr:hover td { background: rgba(61, 185, 255, 0.04); }
+    .empty { text-align: center; color: var(--muted); padding: 24px 12px; }
   </style>
 </head>
 <body>
@@ -288,7 +234,6 @@ app.get('/', (req, res) => {
         <h2>Linked Players</h2>
         <div class="badge">Bridge Online</div>
       </div>
-
       <table>
         <thead>
           <tr>
@@ -304,14 +249,17 @@ app.get('/', (req, res) => {
     </section>
   </main>
 </body>
-</html>`;
-
-  res.type('html').send(html);
+</html>`);
 });
 
 app.post('/mta/sector', (req, res) => {
-  const payload = parsePayload(req.body);
-  const { discordId, sector, isLeader } = payload;
+  const payload = normalizePayload(req.body);
+  console.log('[mta/sector] raw body:', req.body);
+  console.log('[mta/sector] parsed payload:', payload);
+
+  const discordId = payload.discordId;
+  const sector = payload.sector;
+  const isLeader = payload.isLeader;
 
   if (!discordId || !sector) {
     return res.status(400).json({ success: false });
@@ -326,7 +274,7 @@ app.post('/mta/sector', (req, res) => {
 });
 
 app.post('/mta/verified', (req, res) => {
-  const payload = parsePayload(req.body);
+  const payload = normalizePayload(req.body);
   const { mtaUsername, code } = payload;
 
   if (!mtaUsername || !code) {
@@ -334,16 +282,12 @@ app.post('/mta/verified', (req, res) => {
   }
 
   codesStore[mtaUsername] = code;
-  console.log(`[MTA] verified ${mtaUsername} with code ${code}`);
   return res.json({ success: true });
 });
 
 app.get('/api/get-code/:username', (req, res) => {
   const code = codesStore[req.params.username];
-  if (code) {
-    return res.json({ success: true, code });
-  }
-  return res.json({ success: false });
+  return code ? res.json({ success: true, code }) : res.json({ success: false });
 });
 
 app.get('/api/pending-codes', (req, res) => {
@@ -351,7 +295,7 @@ app.get('/api/pending-codes', (req, res) => {
 });
 
 app.post('/api/verify', (req, res) => {
-  const payload = parsePayload(req.body);
+  const payload = normalizePayload(req.body);
   const { mtaUsername, code } = payload;
 
   if (!mtaUsername || !code) {
@@ -363,7 +307,7 @@ app.post('/api/verify', (req, res) => {
 });
 
 app.post('/api/bind', (req, res) => {
-  const payload = parsePayload(req.body);
+  const payload = normalizePayload(req.body);
   const { mtaUsername, discordId } = payload;
 
   if (mtaUsername && discordId) {
@@ -374,7 +318,7 @@ app.post('/api/bind', (req, res) => {
 });
 
 app.post('/api/unbind', (req, res) => {
-  const payload = parsePayload(req.body);
+  const payload = normalizePayload(req.body);
   const { discordId } = payload;
 
   if (discordId) {
