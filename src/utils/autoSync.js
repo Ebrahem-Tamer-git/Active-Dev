@@ -1,6 +1,7 @@
 // © 2026 Ebrahem
 import { getAllLinks, updateSector } from './database.js';
 import { getRoleId, sectorRoleMap } from './sectorRoles.js';
+import { config } from '../config.js';
 
 const SYNC_INTERVAL_MS = 10_000;
 
@@ -53,6 +54,7 @@ export async function syncMemberRoles(guild, discordId) {
       ok: false,
       reason: `unknown_role:${roleId}`,
       sector: cached.sector,
+      guildId: guild.id,
     };
   }
 
@@ -71,9 +73,9 @@ export function startAutoSync(client) {
 
   setInterval(async () => {
     try {
-      const guild = client.guilds.cache.first();
+      const guild = client.guilds.cache.get(config.guildId);
       if (!guild) {
-        console.log('[AutoSync] skipped: guild not found');
+        console.log(`[AutoSync] skipped: guild ${config.guildId} not found`);
         return;
       }
 
