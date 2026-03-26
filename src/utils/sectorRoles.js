@@ -5,24 +5,22 @@
 export const sectorRoleMap = {
   // شرطة L.S.P.D
   '|| L.S.P.D ||': {
-    member: '1479113920718442552',  // الأفراد
-    leader: '1479113920718442553',  // القيادات
+    member: '1479113920718442552',
+    leader: '1479113920718442553',
   },
 
-  // مدنيين (بدون فاكشن)
+  // Government of Los Santos
+  'Government of Los Santos': {
+    member: '1479113920718442555',
+    leader: '1479113920718442556',
+  },
+
+  // مدنيين
   'Civilians': {
     member: '1479113920697335941',
     leader: null,
   }
-
-    'Government of Los Santos': {
-    member: '1479113920718442555',
-    leader: '1479113920718442556',
-  }
-  
-}
-
-  ;
+};
 
 // جيب الرول المناسب بناءً على القطاع والرتبة
 export function getRoleId(factionName, isLeader = false) {
