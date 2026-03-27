@@ -3,11 +3,14 @@ import './web/server.js';
 import { Client, GatewayIntentBits, Collection, REST, Routes } from 'discord.js';
 import { config } from './config.js';
 import { startAutoSync } from './utils/autoSync.js';
+import { initDb } from './utils/database.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+await initDb();
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
@@ -15,7 +18,6 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// تحميل الأوامر
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
 const commandsData = [];
@@ -26,7 +28,6 @@ for (const file of commandFiles) {
   commandsData.push(command.data.toJSON());
 }
 
-// تسجيل الأوامر
 const rest = new REST({ version: '10' }).setToken(config.token);
 await rest.put(
   Routes.applicationGuildCommands(config.clientId, config.guildId),
@@ -59,4 +60,3 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login(config.token);
-
