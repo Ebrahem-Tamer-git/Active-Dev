@@ -12,39 +12,22 @@ export default {
   async execute(interaction) {
     await interaction.deferReply({ flags: 64 });
 
-    const players = getAllLinks();
+    const players = await getAllLinks();
     if (players.length === 0) {
-      return interaction.editReply({
-        content: '❌ لا يوجد أي حسابات مربوطة في قاعدة البيانات.'
-      });
+      return interaction.editReply({ content: '❌ لا يوجد أي حسابات مربوطة في قاعدة البيانات.' });
     }
 
     let success = 0;
     let failed = 0;
-    const failReasons = [];
 
-    for (const { discord_id, mta_username } of players) {
-      try {
-        const result = await syncMemberRoles(interaction.guild, discord_id);
-
-        if (result.ok) {
-          success++;
-        } else {
-          failed++;
-          failReasons.push(`• ${mta_username}: ${result.reason}`);
-        }
-      } catch (error) {
-        failed++;
-        failReasons.push(`• ${mta_username}: ${error.message}`);
-      }
+    for (const { discord_id } of players) {
+      const result = await syncMemberRoles(interaction.guild, discord_id).catch(() => null);
+      if (result?.ok) success++;
+      else failed++;
     }
 
-    const details = failReasons.length
-      ? `\n\nأسباب الفشل:\n${failReasons.slice(0, 10).join('\n')}`
-      : '';
-
     await interaction.editReply({
-      content: `✅ تمت المزامنة! نجح: **${success}** | فشل: **${failed}**${details}`
+      content: `✅ تمت المزامنة! نجح: **${success}** | فشل: **${failed}**`
     });
   }
 };
