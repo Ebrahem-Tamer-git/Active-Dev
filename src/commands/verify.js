@@ -17,15 +17,15 @@ export default {
   async execute(interaction) {
     const username = interaction.options.getString('username');
 
-    const currentLink = getLink(interaction.user.id);
+    const currentLink = await getLink(interaction.user.id);
     if (currentLink && currentLink.mta_username !== username) {
       return interaction.reply({
-        content: `❌ حسابك مربوط بالفعل على **${currentLink.mta_username}**. استخدم \`/unlink\` أولاً لو عايز تغيّره.`,
+        content: `❌ حسابك مربوط بالفعل على **${currentLink.mta_username}**. استخدم \`/unlink\` أولاً.`,
         flags: 64
       });
     }
 
-    const usernameLink = getLinkByUsername(username);
+    const usernameLink = await getLinkByUsername(username);
     if (usernameLink && usernameLink.discord_id !== interaction.user.id) {
       return interaction.reply({
         content: '❌ حساب الـ MTA ده مربوط بالفعل بحساب ديسكورد آخر.',
@@ -36,7 +36,7 @@ export default {
     const result = generateVerifyCode(interaction.user.id, username);
     if (result.error === 'username_pending_elsewhere') {
       return interaction.reply({
-        content: '❌ في طلب تحقق مفتوح بالفعل لهذا الحساب من شخص آخر. استنى انتهاء المهلة أو جرّب لاحقًا.',
+        content: '❌ في طلب تحقق مفتوح بالفعل لهذا الحساب من شخص آخر.',
         flags: 64
       });
     }
