@@ -15,16 +15,18 @@ export default {
 
   async execute(interaction) {
     const user = interaction.options.getUser('member');
-    const link = getLink(user.id);
+    const link = await getLink(user.id);
+
     if (!link) {
       return interaction.reply({
         content: `❌ العضو **${user.tag}** مش مرتبط بأي حساب MTA.`,
         flags: 64
       });
     }
+
     const cached = sectorsCache.get(user.id);
     const sector = cached?.sector || link.sector || 'غير معروف';
-    const isLeader = cached?.isLeader || link.is_leader;
+    const isLeader = cached?.isLeader || Boolean(link.is_leader);
 
     await interaction.reply({
       content: [
