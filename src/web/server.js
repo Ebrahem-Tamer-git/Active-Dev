@@ -4,7 +4,7 @@ import bodyParser from 'body-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { sectorsCache } from '../utils/autoSync.js';
-import { saveLink, deleteLink, getAllLinks, getLinkByUsername } from '../utils/database.js';
+import { saveLink, deleteLink, getAllLinks, getLinkByUsername, updateSector } from '../utils/database.js';
 import { config } from '../config.js';
 
 const app = express();
@@ -96,6 +96,8 @@ app.post('/mta/sector', async (req, res) => {
     sector: String(sector),
     isLeader: !!isLeader,
   });
+
+  await updateSector(String(discordId), String(sector), !!isLeader);
 
   return res.json({ success: true });
 });

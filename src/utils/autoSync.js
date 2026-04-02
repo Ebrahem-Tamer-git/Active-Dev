@@ -19,26 +19,30 @@ function getExistingFactionRoleIds(guild) {
   return configured.filter(roleId => guild.roles.cache.has(roleId));
 }
 
-export async function syncMemberRoles(guild, discordId) {
+export async function syncMemberRoles(guild, discordId, fallback = null) {
   const cached = sectorsCache.get(String(discordId));
-  if (!cached) return { ok: false, reason: 'missing_sector' };
+  const fallbackSector = fallback?.sector;
+  const fallbackLeader = fallback?.isLeader;
+  const sector = cached?.sector ?? fallbackSector;
+  const isLeader = cached?.isLeader ?? fallbackLeader;
+  if (!sector) return { ok: false, reason: 'missing_sector' };
 
   const member = await guild.members.fetch(String(discordId)).catch(() => null);
   if (!member) return { ok: false, reason: 'member_not_found' };
 
-  const targetRoleId = getRoleId(cached.sector, cached.isLeader);
+  const targetRoleId = getRoleId(sector, isLeader);
   const factionRoleIds = getExistingFactionRoleIds(guild);
   const memberFactionRoles = factionRoleIds.filter(roleId => member.roles.cache.has(roleId));
   const hasTargetRole = targetRoleId ? member.roles.cache.has(String(targetRoleId)) : false;
 
-  await updateSector(String(discordId), cached.sector, cached.isLeader);
+  await updateSector(String(discordId), sector, isLeader);
 
   if (!targetRoleId) {
     if (memberFactionRoles.length > 0) {
       await member.roles.remove(memberFactionRoles).catch(() => null);
-      return { ok: true, changed: true, removedOnly: true, sector: cached.sector };
+      return { ok: true, changed: true, removedOnly: true, sector };
     }
-    return { ok: true, changed: false, removedOnly: true, sector: cached.sector };
+    return { ok: true, changed: false, removedOnly: true, sector };
   }
 
   if (!guild.roles.cache.has(String(targetRoleId))) {
@@ -48,7 +52,7 @@ export async function syncMemberRoles(guild, discordId) {
   const rolesToRemove = memberFactionRoles.filter(roleId => roleId !== String(targetRoleId));
 
   if (rolesToRemove.length === 0 && hasTargetRole) {
-    return { ok: true, changed: false, removedOnly: false, sector: cached.sector };
+    return { ok: true, changed: false, removedOnly: false, sector };
   }
 
   if (rolesToRemove.length > 0) {
@@ -59,7 +63,7 @@ export async function syncMemberRoles(guild, discordId) {
     await member.roles.add(String(targetRoleId));
   }
 
-  return { ok: true, changed: true, removedOnly: false, sector: cached.sector };
+  return { ok: true, changed: true, removedOnly: false, sector };
 }
 
 export function startAutoSync(client) {
@@ -73,8 +77,12 @@ export function startAutoSync(client) {
       const players = await getAllLinks();
       if (players.length === 0) return;
 
-      for (const { discord_id } of players) {
-        await syncMemberRoles(guild, discord_id).catch(() => null);
+      for (const player of players) {
+        const fallback = {
+          sector: player.sector ?? null,
+          isLeader: Boolean(player.is_leader),
+        };
+        await syncMemberRoles(guild, player.discord_id, fallback).catch(() => null);
       }
     } catch (error) {
       console.error('[AutoSync] fatal loop error:', error.message);
