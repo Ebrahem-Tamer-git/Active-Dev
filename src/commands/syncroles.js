@@ -20,8 +20,12 @@ export default {
     let success = 0;
     let failed = 0;
 
-    for (const { discord_id } of players) {
-      const result = await syncMemberRoles(interaction.guild, discord_id).catch(() => null);
+    for (const player of players) {
+      const fallback = {
+        sector: player.sector ?? null,
+        isLeader: Boolean(player.is_leader)
+      };
+      const result = await syncMemberRoles(interaction.guild, player.discord_id, fallback).catch(() => null);
       if (result?.ok) success++;
       else failed++;
     }

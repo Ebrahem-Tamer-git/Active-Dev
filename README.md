@@ -1,77 +1,38 @@
-<!-- loqmanas dev -->
+# Active-Dev (Button-First Linking)
 
-# MTA‑Discord‑RP‑Connector
+Discord bot for linking MTA accounts to Discord using a code generated in-game.
 
-بوت ديسكورد متكامل يربط خادم RP على **MTA:SA** مع خادم ديسكورد. يتيح ربط حسابات اللاعبين داخل اللعبة بحساباتهم على ديسكورد ويوزع رولات تلقائيًا بحسب الفصيل (القطاع) داخل اللعبة.
+## User flow
 
-## المميزات الأساسية
-- ربط حساب MTA بحساب Discord عبر رمز تحقق مؤقت (`/verify` → `/link`).
-- إلغاء الربط (`/unlink`).
-- إعطاء رولات تلقائيًا بناءً على القطاع (`/assignrole`).
-- مزامنة رولات جميع اللاعبين المرتبطين (`/syncroles`).
-- عرض معلومات القطاع للعضو (`/sectorinfo`).
-- واجهة ويب إدارية بسيطة للتكوين والـ logs.
+1. Player opens MTA `F1` tab and generates link code.
+2. Player presses `بدء الربط` button in Discord panel.
+3. Bot sends DM and asks player to send the code.
+4. Bot validates code, links account, and syncs roles.
 
-## المتطلبات
-- Node.js >= 18
-- حساب بوت Discord مع صلاحيات `applications.commands`, `manage_roles`, `read_message_history`.
-- خادم MTA مع API HTTP يطلّب النقاط التالية:
-  - `POST /bind` – ربط حساب.
-  - `POST /unbind` – إلغاء الربط.
-  - `POST /verify` – إرسال رمز تحقق إلى اللعبة.
-  - `GET /sector/:discordId` – إرجاع القطاع الحالي للعضو.
-  - `GET /linked` – إرجاع جميع الحسابات المرتبطة.
+## Required env vars
 
-## الإعداد
-1. **إنشاء ملف `.env`** وملء القيم:
-   dotenv
-   DISCORD_TOKEN=YOUR_TOKEN
-   CLIENT_ID=YOUR_CLIENT_ID
-   GUILD_ID=YOUR_GUILD_ID
-   MTA_API_URL=http://YOUR_MTA_SERVER:PORT/api
-   VERIFY_CODE_TTL=300   # عمر رمز التحقق بالثواني
-   
-2. تثبيت الاعتمادات:
-   bash
-   npm install
-   
-3. تشغيل البوت:
-   bash
-   npm run start
-   
-4. (اختياري) تشغيل لوحة الإدارة:
-   bash
-   node src/web/server.js
-   
+- `DISCORD_TOKEN`
+- `CLIENT_ID`
+- `GUILD_ID`
+- `PORT`
+- `DATABASE_URL`
+- `DATABASE_SSL` (`true` for hosted Postgres with SSL)
+- `VERIFY_CODE_TTL` (default `300`)
+- `PANEL_CHANNEL_ID` (channel where the panel is auto-published)
 
-## هيكل المجلدات
+## Commands
 
-MTA-Discord-RP-Connector/
-├─ src/
-│  ├─ index.js               # نقطة دخول البوت
-│  ├─ config.js              # إعدادات البيئة
-│  ├─ commands/              # جميع أوامر slash
-│  │   ├─ link.js
-│  │   ├─ unlink.js
-│  │   ├─ verify.js
-│  │   ├─ assignrole.js
-│  │   ├─ syncroles.js
-│  │   └─ sectorinfo.js
-│  ├─ utils/                 # وظائف مساعدة
-│  │   ├─ verification.js
-│  │   ├─ mtaAPI.js
-│  │   └─ sectorRoles.js
-│  └─ web/
-│      └─ server.js          # لوحة الإدارة البسيطة
-├─ package.json
-├─ .env
-└─ README.md
+- `/panel` (admin): publish or refresh linking panel in current channel.
+- `/syncroles` (admin): force role sync for all linked users.
 
+## API endpoints (used by MTA/resource)
 
-## ملاحظات هامة
-- **التحقق من الصلاحيات:** يجب أن يكون للبوت صلاحية `Manage Roles` لتعديل الرولات.
-- **إدارة الأخطاء:** جميع الأوامر تتضمن تعاملًا شاملاً مع الأخطاء وتُعيد رسائل واضحة للمستخدم.
-- **التوسعة:** يمكنك إضافة مزيد من القطاعات أو رولات مخصصة عن طريق تعديل `sectorRoles.js`.
+- `POST /mta/verified` with `{ mtaUsername, code }`
+- `POST /mta/sector` with `{ discordId | mtaUsername, sector, isLeader }`
+- `GET /api/linked`
+- `GET /api/get-code/:username`
 
----
-© 2026 Loqmanas – ThailandCodes™
+## Notes
+
+- Bot needs `Manage Roles` permission.
+- `Message Content Intent` must be enabled in Discord Developer Portal so DM code messages can be read.

@@ -14,7 +14,77 @@ app.use(bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.text({ type: '*/*', limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-export const codesStore = {};
+const verifiedCodesByUsername = new Map();
+const verifiedCodesByCode = new Map();
+
+function normalizeCode(input) {
+  return String(input || '').trim().toUpperCase();
+}
+
+function getCodeExpiry() {
+  return Date.now() + (config.verifyCodeTTL * 1000);
+}
+
+function purgeExpiredCodes() {
+  const now = Date.now();
+  for (const [code, row] of verifiedCodesByCode.entries()) {
+    if (row.expiresAt <= now) {
+      verifiedCodesByCode.delete(code);
+      const active = verifiedCodesByUsername.get(row.mtaUsername);
+      if (active && active.code === code) {
+        verifiedCodesByUsername.delete(row.mtaUsername);
+      }
+    }
+  }
+}
+
+export function storeVerifiedCode(mtaUsername, rawCode) {
+  purgeExpiredCodes();
+
+  const username = String(mtaUsername);
+  const code = normalizeCode(rawCode);
+  const expiresAt = getCodeExpiry();
+
+  const previous = verifiedCodesByUsername.get(username);
+  if (previous) {
+    verifiedCodesByCode.delete(previous.code);
+  }
+
+  const row = { code, mtaUsername: username, expiresAt };
+  verifiedCodesByUsername.set(username, row);
+  verifiedCodesByCode.set(code, row);
+}
+
+export function consumeVerifiedCode(rawCode) {
+  purgeExpiredCodes();
+  const code = normalizeCode(rawCode);
+  const row = verifiedCodesByCode.get(code);
+  if (!row) return null;
+
+  verifiedCodesByCode.delete(code);
+  const current = verifiedCodesByUsername.get(row.mtaUsername);
+  if (current && current.code === code) {
+    verifiedCodesByUsername.delete(row.mtaUsername);
+  }
+
+  return { mtaUsername: row.mtaUsername };
+}
+
+export function getVerifiedCodeByUsername(username) {
+  purgeExpiredCodes();
+  const row = verifiedCodesByUsername.get(String(username));
+  if (!row) return null;
+  return row.code;
+}
+
+export function getPendingCodesSnapshot() {
+  purgeExpiredCodes();
+  const payload = {};
+  for (const [username, row] of verifiedCodesByUsername.entries()) {
+    payload[username] = row.code;
+  }
+  return payload;
+}
 
 function normalizePayload(body) {
   let payload = body;
@@ -105,21 +175,21 @@ app.post('/mta/sector', async (req, res) => {
 app.post('/mta/verified', (req, res) => {
   const { mtaUsername, code } = normalizePayload(req.body);
   if (!mtaUsername || !code) return res.status(400).json({ success: false });
-  codesStore[mtaUsername] = code;
+  storeVerifiedCode(mtaUsername, code);
   return res.json({ success: true });
 });
 
 app.get('/api/get-code/:username', (req, res) => {
-  const code = codesStore[req.params.username];
+  const code = getVerifiedCodeByUsername(req.params.username);
   return code ? res.json({ success: true, code }) : res.json({ success: false });
 });
 
-app.get('/api/pending-codes', (req, res) => res.json({ ...codesStore }));
+app.get('/api/pending-codes', (req, res) => res.json(getPendingCodesSnapshot()));
 
 app.post('/api/verify', (req, res) => {
   const { mtaUsername, code } = normalizePayload(req.body);
   if (!mtaUsername || !code) return res.status(400).json({ success: false });
-  codesStore[mtaUsername] = code;
+  storeVerifiedCode(mtaUsername, code);
   return res.json({ success: true });
 });
 
