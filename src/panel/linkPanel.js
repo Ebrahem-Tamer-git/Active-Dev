@@ -10,7 +10,6 @@ import { consumeVerifiedCode } from '../web/server.js';
 import { deleteLink, getLink, getLinkByUsername, saveLink } from '../utils/database.js';
 import { syncMemberRoles } from '../utils/autoSync.js';
 
-const PANEL_MARKER = 'active-dev-link-panel-v1';
 
 const BUTTON_IDS = {
   start: 'panel:start_link',
@@ -30,8 +29,7 @@ function buildPanelEmbed() {
         '3) البوت سيرسل لك رسالة خاصة، أرسل فيها الكود.',
         '4) بعد نجاح الربط، الرتب تتحدث تلقائيًا.'
       ].join('\n')
-    )
-    .setFooter({ text: PANEL_MARKER });
+    );
 }
 
 function buildPanelRows() {
@@ -74,7 +72,10 @@ export async function ensureLinkPanelMessage(client, preferredChannelId = null) 
   const existing = recent?.find(
     (message) =>
       message.author?.id === client.user.id &&
-      message.embeds?.[0]?.footer?.text === PANEL_MARKER
+      message.embeds?.[0]?.title === 'لوحة ربط الحساب' &&
+      message.components?.some((row) =>
+        row.components?.some((component) => component.customId === BUTTON_IDS.start)
+      )
   );
 
   const payload = {
