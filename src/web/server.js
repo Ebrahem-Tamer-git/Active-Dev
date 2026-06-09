@@ -16,6 +16,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const verifiedCodesByUsername = new Map();
 const verifiedCodesByCode = new Map();
+const pendingSectorsByUsername = new Map();
 
 function normalizeCode(input) {
   return String(input || '').trim().toUpperCase();
@@ -86,6 +87,15 @@ export function getPendingCodesSnapshot() {
   return payload;
 }
 
+export function consumePendingSector(mtaUsername) {
+  const username = String(mtaUsername);
+  const pending = pendingSectorsByUsername.get(username);
+  if (pending) {
+    pendingSectorsByUsername.delete(username);
+  }
+  return pending ?? null;
+}
+
 function normalizePayload(body) {
   let payload = body;
   if (!payload) return {};
@@ -153,12 +163,24 @@ app.post('/mta/sector', async (req, res) => {
   const payload = normalizePayload(req.body);
   let { discordId, mtaUsername, sector, isLeader } = payload;
 
+  if (!sector) {
+    return res.status(400).json({ success: false });
+  }
+
   if (!discordId && mtaUsername) {
     const link = await getLinkByUsername(String(mtaUsername));
     if (link) discordId = link.discord_id;
   }
 
-  if (!discordId || !sector) {
+  if (!discordId && mtaUsername) {
+    pendingSectorsByUsername.set(String(mtaUsername), {
+      sector: String(sector),
+      isLeader: !!isLeader,
+    });
+    return res.json({ success: true, pending: true });
+  }
+
+  if (!discordId) {
     return res.status(400).json({ success: false });
   }
 
