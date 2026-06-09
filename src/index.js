@@ -35,15 +35,20 @@ const commandsData = [];
 
 for (const file of commandFiles) {
   const commandModule = await import(`file://${path.join(commandsPath, file)}`);
-  const command = commandModule.default;
+  const command = commandModule.default ?? commandModule;
+  const commandData = command?.data;
+  const commandName = commandData?.name ?? commandData?.toJSON?.()?.name;
 
-  if (!command?.data?.name || typeof command.execute !== 'function') {
-    console.warn(`[Boot] skipped invalid command file: ${file}`);
+  if (!commandName || typeof command.execute !== 'function') {
+    console.warn(
+      `[Boot] skipped invalid command file: ${file} ` +
+      `(hasData=${Boolean(commandData)}, hasExecute=${typeof command?.execute === 'function'})`
+    );
     continue;
   }
 
-  client.commands.set(command.data.name, command);
-  commandsData.push(command.data.toJSON());
+  client.commands.set(commandName, command);
+  commandsData.push(typeof commandData.toJSON === 'function' ? commandData.toJSON() : commandData);
 }
 
 const rest = new REST({ version: '10' }).setToken(config.token);
