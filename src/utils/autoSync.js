@@ -4,6 +4,7 @@ import { getRoleId, sectorRoleMap } from './sectorRoles.js';
 import { config } from '../config.js';
 
 const SYNC_INTERVAL_MS = 10_000;
+const DEFAULT_SECTOR = 'Civilians';
 
 export const sectorsCache = new Map();
 
@@ -23,9 +24,8 @@ export async function syncMemberRoles(guild, discordId, fallback = null) {
   const cached = sectorsCache.get(String(discordId));
   const fallbackSector = fallback?.sector;
   const fallbackLeader = fallback?.isLeader;
-  const sector = cached?.sector ?? fallbackSector;
-  const isLeader = cached?.isLeader ?? fallbackLeader;
-  if (!sector) return { ok: false, reason: 'missing_sector' };
+  const sector = cached?.sector ?? fallbackSector ?? DEFAULT_SECTOR;
+  const isLeader = cached?.isLeader ?? fallbackLeader ?? false;
 
   const member = await guild.members.fetch(String(discordId)).catch(() => null);
   if (!member) return { ok: false, reason: 'member_not_found' };
