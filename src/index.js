@@ -34,7 +34,14 @@ const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith
 const commandsData = [];
 
 for (const file of commandFiles) {
-  const { default: command } = await import(`file://${path.join(commandsPath, file)}`);
+  const commandModule = await import(`file://${path.join(commandsPath, file)}`);
+  const command = commandModule.default;
+
+  if (!command?.data?.name || typeof command.execute !== 'function') {
+    console.warn(`[Boot] skipped invalid command file: ${file}`);
+    continue;
+  }
+
   client.commands.set(command.data.name, command);
   commandsData.push(command.data.toJSON());
 }
