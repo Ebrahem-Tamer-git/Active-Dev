@@ -6,9 +6,9 @@ import {
   EmbedBuilder
 } from 'discord.js';
 import { config } from '../config.js';
-import { consumeVerifiedCode } from '../web/server.js';
-import { deleteLink, getLink, getLinkByUsername, saveLink } from '../utils/database.js';
-import { syncMemberRoles } from '../utils/autoSync.js';
+import { consumePendingSector, consumeVerifiedCode } from '../web/server.js';
+import { deleteLink, getLink, getLinkByUsername, saveLink, updateSector } from '../utils/database.js';
+import { sectorsCache, syncMemberRoles } from '../utils/autoSync.js';
 
 
 const BUTTON_IDS = {
@@ -227,12 +227,19 @@ export async function handleDmCodeMessage(client, message) {
 
   await saveLink(message.author.id, verified.mtaUsername);
 
+  const pendingSector = consumePendingSector(verified.mtaUsername) ?? {
+    sector: 'Civilians',
+    isLeader: false
+  };
+  await updateSector(message.author.id, pendingSector.sector, pendingSector.isLeader);
+  sectorsCache.set(String(message.author.id), pendingSector);
+
   const guild = client.guilds.cache.get(config.guildId);
   if (guild) {
     const link = await getLink(message.author.id);
     const fallback = {
-      sector: link?.sector ?? null,
-      isLeader: Boolean(link?.is_leader)
+      sector: pendingSector.sector ?? link?.sector ?? 'Civilians',
+      isLeader: Boolean(pendingSector.isLeader ?? link?.is_leader)
     };
     await syncMemberRoles(guild, message.author.id, fallback).catch(() => null);
   }
