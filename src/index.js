@@ -1,4 +1,4 @@
-import './web/server.js';
+import { setDiscordClient } from './web/server.js';
 import { Client, Collection, GatewayIntentBits, Partials, REST, Routes } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
@@ -26,6 +26,7 @@ const client = new Client({
   ],
   partials: [Partials.Channel]
 });
+setDiscordClient(client);
 
 client.commands = new Collection();
 
@@ -85,6 +86,7 @@ client.on('interactionCreate', async (interaction) => {
       content: 'حدث خطأ أثناء تنفيذ الطلب.',
       ephemeral: true
     };
+
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp(payload).catch(() => null);
     } else {
