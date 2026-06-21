@@ -32,7 +32,7 @@ export async function syncMemberRoles(guild, discordId, fallback = null) {
     discordId: String(discordId),
     sector,
     isLeader,
-    guildId: guild?.id
+    guildId: guild?.id,
   });
 
   const member = await guild.members.fetch(String(discordId)).catch((error) => {
@@ -78,7 +78,7 @@ export async function syncMemberRoles(guild, discordId, fallback = null) {
     roleId: targetRole.id,
     botHighestRole: botMember.roles.highest.name,
     botHighestPosition: botMember.roles.highest.position,
-    targetPosition: targetRole.position
+    targetPosition: targetRole.position,
   });
 
   if (botMember.roles.highest.position <= targetRole.position) {
@@ -109,7 +109,7 @@ export async function syncMemberRoles(guild, discordId, fallback = null) {
   console.log('[RoleSync] finished', {
     discordId: String(discordId),
     targetRoleId: String(targetRoleId),
-    nowHasRole
+    nowHasRole,
   });
 
   if (!nowHasRole) {
@@ -120,7 +120,7 @@ export async function syncMemberRoles(guild, discordId, fallback = null) {
     ok: true,
     changed: !hasTargetRole || rolesToRemove.length > 0,
     removedOnly: false,
-    sector
+    sector,
   };
 }
 
@@ -150,7 +150,7 @@ export function startAutoSync(client) {
           console.warn('[AutoSync] member sync failed:', {
             discordId: player.discord_id,
             sector: fallback.sector,
-            reason: result?.reason || 'unknown'
+            reason: result?.reason || 'unknown',
           });
         }
       }
